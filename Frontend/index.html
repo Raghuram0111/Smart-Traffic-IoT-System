@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<title>Smart City Traffic IoT Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+text-align:center;
+background:#f4f4f4;
+margin:0;
+}
+
+header{
+background:#2c3e50;
+color:white;
+padding:20px;
+}
+
+.container{
+width:85%;
+margin:auto;
+margin-top:30px;
+}
+
+#alert{
+color:red;
+font-size:22px;
+margin-bottom:20px;
+}
+
+canvas{
+background:white;
+padding:15px;
+border-radius:10px;
+margin-bottom:30px;
+}
+
+#map{
+height:400px;
+border-radius:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+<h1>🚦 Smart City Traffic Monitoring System</h1>
+</header>
+
+<div class="container">
+
+<h2 id="alert"></h2>
+
+<canvas id="trafficChart"></canvas>
+
+<h2>🗺 Live Traffic Map</h2>
+
+<div id="map"></div>
+
+</div>
+
+<script>
+
+let chart;
+let map = L.map('map').setView([17.6868,83.2185],12);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+maxZoom:19
+}).addTo(map);
+
+const junctionLocations={
+"Junction_A":[17.6868,83.2185],
+"Junction_B":[17.7000,83.2200],
+"Junction_C":[17.7100,83.2300],
+"Junction_D":[17.7200,83.2400]
+};
+
+let markers={};
+
+async function loadTraffic(){
+
+let response=await fetch("http://127.0.0.1:5000/gettraffic");
+
+let data=await response.json();
+
+let counts=data.map(d=>d.vehicle_count);
+let locations=data.map(d=>d.location);
+
+let alertMessage="";
+
+data.forEach(d=>{
+
+if(d.status==="High Traffic"){
+alertMessage="🚨 High Traffic at "+d.location;
+}
+
+if(junctionLocations[d.location]){
+
+let coords=junctionLocations[d.location];
+
+if(markers[d.location]){
+map.removeLayer(markers[d.location]);
+}
+
+let color=d.status==="High Traffic"?"red":"green";
+
+markers[d.location]=L.circleMarker(coords,{
+radius:10,
+color:color
+})
+.addTo(map)
+.bindPopup(d.location+"<br>"+d.status+"<br>Vehicles: "+d.vehicle_count);
+
+}
+
+});
+
+document.getElementById("alert").innerHTML=alertMessage;
+
+let ctx=document.getElementById("trafficChart");
+
+if(chart){
+chart.destroy();
+}
+
+chart=new Chart(ctx,{
+type:"bar",
+
+data:{
+labels:locations,
+
+datasets:[{
+label:"Vehicle Count",
+data:counts
+}]
+},
+
+options:{
+responsive:true,
+scales:{
+y:{
+beginAtZero:true
+}
+}
+}
+
+});
+
+}
+
+setInterval(loadTraffic,3000);
+
+</script>
+
+</body>
+</html>
